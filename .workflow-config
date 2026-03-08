@@ -1,0 +1,38 @@
+{
+  "project_name": "pomodoro-timer",
+  "repo_url": "https://github.com/reveleven92-dot/pomodoro-timer",
+  "language": "typescript",
+  "framework": "nextjs",
+  "tech_stack": "Next.js + TypeScript + Tailwind CSS v4 + App Router",
+  "linter_command": "npx eslint .",
+  "formatter_command": "npx prettier --write .",
+  "test_command": "npx jest --passWithNoTests",
+  "coverage_command": "npx jest --coverage --passWithNoTests",
+  "max_file_lines": 800,
+  "max_function_lines": 80,
+  "min_test_coverage": 80,
+  "code_review_tool": "none",
+  "source_extensions": "js,ts,tsx,jsx",
+  "src_dir": "src",
+  "test_dir": "__tests__",
+  "ui": {
+    "enabled": "yes",
+    "design_system": "shadcn",
+    "component_library": "base-ui",
+    "base_url": "http://localhost:3000",
+    "start_command": "npm run dev"
+  },
+  "visual_qa": {
+    "provider": "claude",
+    "viewports": [
+      "desktop",
+      "tablet",
+      "mobile"
+    ],
+    "routes": [
+      "/"
+    ],
+    "max_fix_rounds": 2,
+    "accessibility_level": "AA"
+  }
+}
