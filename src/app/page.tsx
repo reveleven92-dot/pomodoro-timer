@@ -1,65 +1,135 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+import { useCallback } from "react";
+import { Toaster, toast } from "sonner";
+import { TimerDisplay } from "@/components/timer-display";
+import { TimerControls } from "@/components/timer-controls";
+import { SessionTabs } from "@/components/session-tabs";
+import { SettingsPanel } from "@/components/settings-panel";
+import { SessionHistory } from "@/components/session-history";
+import { StatsCard } from "@/components/stats-card";
+import { ShortcutsHelp } from "@/components/shortcuts-help";
+import { useTimer } from "@/hooks/use-timer";
+import { useAudio } from "@/hooks/use-audio";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import type { SessionType, TimerSettings, SessionRecord } from "@/lib/types";
+import { DEFAULT_SETTINGS, SESSION_LABELS } from "@/lib/types";
+
+/**
+ * Main Pomodoro Timer page.
+ *
+ * Assembles all components into a responsive layout:
+ * - Mobile: stacked, single column
+ * - Desktop: timer centered with sidebar for history and stats
+ */
+export default function PomodoroPage() {
+  const [settings, setSettings] = useLocalStorage<TimerSettings>(
+    "pomodoro-settings",
+    DEFAULT_SETTINGS,
   );
+  const [sessions, setSessions] = useLocalStorage<SessionRecord[]>(
+    "pomodoro-sessions",
+    [],
+  );
+
+  const { playBeep } = useAudio();
+
+  const handleSessionComplete = useCallback(
+    (completedType: SessionType, nextType: SessionType) => {
+      // Record the completed session
+      const record: SessionRecord = {
+        type: completedType,
+        duration: getDurationForType(completedType, settings),
+        completedAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [...prev, record]);
+
+      // Play audio beep
+      playBeep();
+
+      // Show toast notification
+      toast.success(
+        `${SESSION_LABELS[completedType]} complete! Starting ${SESSION_LABELS[nextType]}.`,
+        { duration: 4000 },
+      );
+    },
+    [playBeep, setSessions, settings],
+  );
+
+  const timer = useTimer({ settings, onSessionComplete: handleSessionComplete });
+
+  useKeyboardShortcuts({
+    status: timer.status,
+    start: timer.start,
+    pause: timer.pause,
+    reset: timer.reset,
+    switchSession: timer.switchSession,
+  });
+
+  return (
+    <>
+      <Toaster position="top-center" richColors />
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        {/* Header */}
+        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Pomodoro Timer
+          </h1>
+          <div className="flex items-center gap-1">
+            <ShortcutsHelp />
+            <SettingsPanel settings={settings} onSettingsChange={setSettings} />
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main className="mx-auto max-w-6xl px-4 py-8">
+          <div className="grid gap-8 xl:grid-cols-[1fr_320px]">
+            {/* Timer column */}
+            <section className="flex flex-col items-center gap-8">
+              <SessionTabs
+                activeType={timer.sessionType}
+                onSwitch={timer.switchSession}
+              />
+
+              <TimerDisplay
+                timeRemaining={timer.timeRemaining}
+                progress={timer.progress}
+                sessionType={timer.sessionType}
+                status={timer.status}
+              />
+
+              <TimerControls
+                status={timer.status}
+                onStart={timer.start}
+                onPause={timer.pause}
+                onReset={timer.reset}
+              />
+            </section>
+
+            {/* Sidebar: history and stats */}
+            <aside className="flex flex-col gap-6">
+              <StatsCard sessions={sessions} />
+              <SessionHistory sessions={sessions} />
+            </aside>
+          </div>
+        </main>
+      </div>
+    </>
+  );
+}
+
+/** Helper to get the configured duration (in minutes) for a session type. */
+function getDurationForType(
+  type: SessionType,
+  settings: TimerSettings,
+): number {
+  switch (type) {
+    case "focus":
+      return settings.focusDuration;
+    case "shortBreak":
+      return settings.shortBreakDuration;
+    case "longBreak":
+      return settings.longBreakDuration;
+  }
 }
